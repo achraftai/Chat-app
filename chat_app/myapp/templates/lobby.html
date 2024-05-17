@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    {% load static %}
+    <link rel="stylesheet" href="{% static 'css/lobby.css' %}">
+    <title>Sign-in Page</title>
+</head>
+<body>
+    <div class="sign-in-container">
+        <h2>Enter your chat name:</h2>
+        <form method="post">
+            {% csrf_token %}
+            <input type="text" name="username" placeholder="Username" required>
+            <button type="submit">Join the chat</button>
+        </form>
+    </div>
+</body>
+</html>

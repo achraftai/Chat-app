@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    {% load static %}
+    <link rel="stylesheet"  href="{% static 'css/chat.css' %}">
+    <title>Chat</title>
+</head>
+<body>
+<div class="header">
+    <h1>Welcome {{ request.session.username }}!</h1>
+</div>
+
+<div class="container">
+    <div class="messages">
+        <div id="sse-data"></div>
+    </div>
+
+    <form x-cloak
+          @submit.prevent="submit" x-data="{state: 'composing', errors: {}}">
+        <div>
+            <textarea name="content" @input="state = 'composing'" autofocus placeholder="Your next message..."></textarea>
+            <button class="button">
+                Send
+            </button>
+        </div>
+
+        <div x-show="state === 'error'">
+            <p>
+                Error sending your message ❌
+            </p>
+        </div>
+    </form>
+
+    <form action="/lobby/" method="get">
+        <button class="lobby_button" type="submit">Return to Lobby</button>
+    </form>
+</div>
+
+<script>
+    let eventSource;
+    const sseData = document.getElementById('sse-data');
+    const styleElement = document.createElement('style');
+    const colors = [
+        'lightblue',
+        'green',
+        'lightpink', 
+        'lightcoral'
+    ];
+    const availableColors = [...colors];
+    const userColors = {}; 
+
+    document.head.appendChild(styleElement);
+
+    function startSSE() {
+        eventSource = new EventSource('/stream-chat-messages/');
+        eventSource.onmessage = event => {
+            const data = JSON.parse(event.data);
+            const authorName = data.author__name;
+
+            if (!userColors[authorName]) {
+                if (availableColors.length > 0) {
+                    const randomIndex = Math.floor(Math.random() * availableColors.length);
+                    userColors[authorName] = availableColors[randomIndex];
+                    availableColors.splice(randomIndex, 1); 
+                } else {
+                    userColors[authorName] = colors[Math.floor(Math.random() * colors.length)];
+                }
+            }
+
+            const messageHTML = `
+                <div class="message-box" style="border-left: 4px solid ${userColors[authorName]}">
+                    <div class="message-author" style="color: ${userColors[authorName]}">${authorName}</div>
+                    <div class="message-content">${data.content}</div>
+                </div>`;
+            
+            sseData.innerHTML += messageHTML;
+        };
+    }
+    // On load, start SSE if the browser supports it.
+    if (typeof(EventSource) !== 'undefined') {
+        startSSE();
+    } else {
+        sseData.innerHTML = 'Whoops! Your browser doesn\'t receive server-sent events.';
+    }
+</script>
+
+<script>
+    function submit(event) {
+        event.preventDefault();
+        const formData = new FormData(event.target);
+
+        const endpointUrl = "/create-message/"
+        fetch(endpointUrl, {
+            method: "post",
+            body: formData,
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}',
+            },
+        })
+            .then(response => {
+                this.state = response.ok ? 'success' : 'error';
+                return response.json();
+            })
+            .then(data => {
+                this.errors = data.errors || {};
+            });
+    }
+</script>
+<script defer="" src="https://cdn.jsdelivr.net/npm/alpinejs@3.12.3/dist/cdn.min.js"></script>
+</body>
+</html>
+
